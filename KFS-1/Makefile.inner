@@ -1,6 +1,7 @@
 CC      := i686-elf-gcc
 AS      := nasm
 BUILD   := build
+KERNEL  := iso/boot/myos.bin
 
 CFLAGS  := -std=gnu99 -ffreestanding -O2 -Wall -Wextra
 LDFLAGS := -T linker.ld -ffreestanding -O2 -nostdlib
@@ -11,12 +12,11 @@ OBJS    := $(BUILD)/boot.o $(BUILD)/kernel.o
 
 iso: myos.iso
 
-myos.iso: $(BUILD)/myos.bin iso/boot/grub/grub.cfg
-	mkdir -p iso/boot
-	cp $(BUILD)/myos.bin iso/boot/myos.bin
+myos.iso: $(KERNEL) iso/boot/grub/grub.cfg
 	grub-mkrescue -o $@ iso
 
-$(BUILD)/myos.bin: $(OBJS) linker.ld
+$(KERNEL): $(OBJS) linker.ld
+	mkdir -p $(@D)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) -lgcc
 
 $(BUILD)/boot.o: src/boot.asm | $(BUILD)
@@ -29,4 +29,4 @@ $(BUILD):
 	mkdir -p $@
 
 clean:
-	rm -rf $(BUILD) myos.iso iso/boot/myos.bin
+	rm -rf $(BUILD) myos.iso $(KERNEL)
