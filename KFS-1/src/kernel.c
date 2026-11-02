@@ -1,6 +1,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <gdt.h>
+#include <idt.h>
+#include <pic.h>
+#include <io.h>
+#include <keyboard.h>
 
 /* Check if the compiler thinks you are targeting the wrong operating system. */
 #if defined(__linux__)
@@ -59,18 +64,25 @@ size_t terminal_column;
 uint8_t terminal_color;
 uint16_t* terminal_buffer = (uint16_t*)VGA_MEMORY;
 
+static void terminal_update_cursor(void)
+{
+	uint16_t pos = terminal_row * VGA_WIDTH + terminal_column;
+
+	outb(0x3D4, 0x0F);
+	outb(0x3D5, (uint8_t)(pos & 0xFF));
+	outb(0x3D4, 0x0E);
+	outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
 void terminal_initialize(void) 
 {
 	terminal_row = 0;
 	terminal_column = 0;
 	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 	
-	for (size_t y = 0; y < VGA_HEIGHT; y++) {
-		for (size_t x = 0; x < VGA_WIDTH; x++) {
-			const size_t index = y * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', terminal_color);
-		}
-	}
+	for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
+		terminal_buffer[i] = vga_entry(' ', terminal_color);
+	terminal_update_cursor();
 }
 
 void terminal_setcolor(uint8_t color) 
@@ -84,14 +96,65 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 	terminal_buffer[index] = vga_entry(c, color);
 }
 
+
+static void terminal_scroll(void)
+{
+	for (size_t y = 1; y < VGA_HEIGHT; y++)
+	{
+		for(size_t x = 0; x < VGA_WIDTH; x++)
+			terminal_buffer[(y - 1) * VGA_WIDTH + 1] = vga_entry(' ', terminal_color);
+	}
+
+	for (size_t x = 0; x < VGA_WIDTH; x++)
+		terminal_buffer[(VGA_HEIGHT -1) * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
+	terminal_row = VGA_HEIGHT - 1;
+}
+
+static void terminal_newline(void)
+{
+	terminal_column = 0;
+	if (++terminal_row == VGA_HEIGHT)
+		terminal_scroll();
+}
+
 void terminal_putchar(char c) 
 {
-	terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-	if (++terminal_column == VGA_WIDTH) {
+	switch (c)
+	{
+	case '\n':
+		terminal_newline();
+		break;
+
+	case '\r':
 		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
+		break;
+
+	case '\b':      /* Backspace : recule et efface */
+		if (terminal_column > 0)
+			terminal_column--;
+		else if (terminal_row > 0)
+		{
+			terminal_row--;
+			terminal_column = VGA_WIDTH - 1;
+		}
+		terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] =
+			vga_entry(' ', terminal_color);
+		break;
+
+	case '\t':      /* Tabulation : aligne sur un multiple de 4 */
+		terminal_column = (terminal_column + 4) & ~(size_t)3;
+		if (terminal_column >= VGA_WIDTH)
+			terminal_newline();
+		break;
+
+	default:        /* Caractère imprimable */
+		terminal_buffer[terminal_row * VGA_WIDTH + terminal_column] =
+			vga_entry((unsigned char)c, terminal_color);
+		if (++terminal_column == VGA_WIDTH)
+			terminal_newline();
+		break;
 	}
+	terminal_update_cursor();
 }
 
 void terminal_write(const char* data, size_t size) 
@@ -111,5 +174,28 @@ void kernel_main(void)
 	terminal_initialize();
 
 	/* Newline support is left as an exercise. */
+	
+	gdt_init();	
+	pic_init();	
+	idt_set_gate(32, (uint32_t)irq0_stub);
+	idt_init();
+	__asm__ volatile("sti");
+	
 	terminal_writestring("Hello, 42!\n");
+
+	for (;;)
+	{
+		int key = keyboard_getkey();
+
+		switch (key)
+		{
+			case KEY_F1:     terminal_setcolor(0x0F); break;
+			case KEY_F2:     terminal_setcolor(0x0A); break;
+			case KEY_F3:     terminal_setcolor(0x0C); break;
+			case KEY_F4:     terminal_setcolor(0x0E); break;
+			default:
+				if (key < 0x100)
+					terminal_putchar((char)key);
+		}
+	}
 }

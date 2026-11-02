@@ -1,4 +1,5 @@
 ; Declare constants for the multiboot header.
+
 MBALIGN  equ  1 << 0            ; align loaded modules on page boundaries
 MEMINFO  equ  1 << 1            ; provide memory map
 MBFLAGS  equ  MBALIGN | MEMINFO ; this is the Multiboot 'flag' field
@@ -11,6 +12,7 @@ CHECKSUM equ -(MAGIC + MBFLAGS) ; checksum of above, to prove we are multiboot
 ; search for this signature in the first 8 KiB of the kernel file, aligned at a
 ; 32-bit boundary. The signature is in its own section so the header can be
 ; forced to be within the first 8 KiB of the kernel file.
+
 section .multiboot
 align 4
 	dd MAGIC
@@ -27,6 +29,7 @@ align 4
 ; System V ABI standard and de-facto extensions. The compiler will assume the
 ; stack is properly aligned and failure to align the stack will result in
 ; undefined behavior.
+
 section .bss
 align 16
 stack_bottom:
@@ -54,6 +57,7 @@ _start:
 	; To set up a stack, we set the esp register to point to the top of our
 	; stack (as it grows downwards on x86 systems). This is necessarily done
 	; in assembly as languages such as C cannot function without a stack.
+
 	mov esp, stack_top
 
 	; This is a good place to initialize crucial processor state before the
@@ -72,6 +76,7 @@ _start:
 	; stack since (pushed 0 bytes so far) and the alignment is thus
 	; preserved and the call is well defined.
         ; note, that if you are building on Windows, C functions may have "_" prefix in assembly: _kernel_main
+
 	extern kernel_main
 	call kernel_main
 
@@ -85,6 +90,7 @@ _start:
 	;    Since they are disabled, this will lock up the computer.
 	; 3) Jump to the hlt instruction if it ever wakes up due to a
 	;    non-maskable interrupt occurring or due to system management mode.
+
 	cli
 .hang:	hlt
 	jmp .hang

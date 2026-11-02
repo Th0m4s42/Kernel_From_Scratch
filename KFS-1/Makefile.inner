@@ -1,32 +1,63 @@
 CC      := i686-elf-gcc
 AS      := nasm
+
+SRC     := src
+INC     := inc
 BUILD   := build
 KERNEL  := iso/boot/myos.bin
+ISO     := myos.iso
 
-CFLAGS  := -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+#=====================================================================================
+#	FLAGS
+#=====================================================================================
+
+CFLAGS  := -std=gnu99 -ffreestanding -O2 -Wall -Wextra \
+		   -fno-builtin -fno-stack-protector -nostdlib -nodefaultlibs \
+		   -I$(INC) -MMD -MP
+ASFLAGS := -f elf32
 LDFLAGS := -T linker.ld -ffreestanding -O2 -nostdlib
 
-OBJS    := $(BUILD)/boot.o $(BUILD)/kernel.o
+#=====================================================================================
+#	SOURCES
+#=====================================================================================
 
-.PHONY: iso clean
+C_SRCS   := $(wildcard $(SRC)/*.c)
+ASM_SRCS := $(wildcard $(SRC)/*.asm)
 
-iso: myos.iso
+# src/gdt.c -> build/gdt.c.o   |   src/boot.asm -> build/boot.asm.o
+C_OBJS   := $(C_SRCS:$(SRC)/%.c=$(BUILD)/%.c.o)
+ASM_OBJS := $(ASM_SRCS:$(SRC)/%.asm=$(BUILD)/%.asm.o)
+OBJS     := $(ASM_OBJS) $(C_OBJS)
 
-myos.iso: $(KERNEL) iso/boot/grub/grub.cfg
+DEPS     := $(C_OBJS:.o=.d)
+
+#=====================================================================================
+#	RULES
+#=====================================================================================
+
+iso: $(ISO)
+
+$(ISO): $(KERNEL) iso/boot/grub/grub.cfg
 	grub-mkrescue -o $@ iso
 
 $(KERNEL): $(OBJS) linker.ld
 	mkdir -p $(@D)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) -lgcc
 
-$(BUILD)/boot.o: src/boot.asm | $(BUILD)
-	$(AS) -f elf32 $< -o $@
+$(BUILD)/%.asm.o: $(SRC)/%.asm | $(BUILD)
+	$(AS) $(ASFLAGS) $< -o $@
 
-$(BUILD)/kernel.o: src/kernel.c | $(BUILD)
+$(BUILD)/%.c.o: $(SRC)/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD):
 	mkdir -p $@
 
 clean:
-	rm -rf $(BUILD) myos.iso $(KERNEL)
+	rm -rf $(BUILD) $(ISO) $(KERNEL)
+
+re: clean iso
+
+-include $(DEPS)
+
+.PHONY: iso clean re
