@@ -12,7 +12,7 @@ ISO     := myos.iso
 #=====================================================================================
 
 CFLAGS  := -std=gnu99 -ffreestanding -O2 -Wall -Wextra \
-		   -fno-builtin -fno-stack-protector -nostdlib -nodefaultlibs \
+		   -fno-builtin -fno-exception -fno-stack-protector -fno-rtti -nostdlib -nodefaultlibs \
 		   -I$(INC) -MMD -MP
 ASFLAGS := -f elf32
 LDFLAGS := -T linker.ld -ffreestanding -O2 -nostdlib
