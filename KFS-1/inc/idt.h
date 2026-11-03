@@ -10,7 +10,7 @@ struct s_idt_entry
 	uint8_t     zero;
 	uint8_t     type_attr;
 	uint16_t    offset_high;
-}   __attribute__((packed));
+}	__attribute__((packed));
 
 typedef struct s_idt_entry t_idt_entry;
 

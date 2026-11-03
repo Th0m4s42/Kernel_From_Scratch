@@ -21,8 +21,15 @@ LDFLAGS := -T linker.ld -ffreestanding -O2 -nostdlib
 #	SOURCES
 #=====================================================================================
 
-C_SRCS   := $(wildcard $(SRC)/*.c)
-ASM_SRCS := $(wildcard $(SRC)/*.asm)
+C_SRCS   :=	$(SRC)/kernel.c \
+			$(SRC)/keyboard.c \
+			$(SRC)/pic.c \
+			$(SRC)/gdt.c \
+			$(SRC)/idt.c \
+			$(SRC)/terminal.c \
+
+ASM_SRCS :=	$(SRC)/boot.asm \
+			$(SRC)/interrupts.asm \
 
 # src/gdt.c -> build/gdt.c.o   |   src/boot.asm -> build/boot.asm.o
 C_OBJS   := $(C_SRCS:$(SRC)/%.c=$(BUILD)/%.c.o)

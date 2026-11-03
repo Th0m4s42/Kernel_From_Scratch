@@ -65,6 +65,8 @@ static int translate(uint8_t sc)
 		return KEY_F3;
 	case 0x3E:
 		return KEY_F4;
+	case 0x3F:
+		return KEY_F5;
 	}
 
 	char c = shift ? shifted[sc] : normal[sc];
